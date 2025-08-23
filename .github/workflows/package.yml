@@ -3,15 +3,16 @@ name: Package Project
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v3
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -25,19 +26,15 @@ jobs:
       - name: Build with Gradle
         run: ./gradlew clean build -x test
 
+      - name: Log in to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.PAT }}
+
       - name: Build Docker image
-        run: docker build -t mcp-app:latest .
+        run: docker build -t ghcr.io/${{ github.repository_owner }}/my-mcp:latest .
 
-      # Uncomment below to push to GitHub Container Registry
-      # - name: Log in to GitHub Container Registry
-      #   uses: docker/login-action@v3
-      #   with:
-      #     registry: ghcr.io
-      #     username: ${{ github.actor }}
-      #     password: ${{ secrets.GITHUB_TOKEN }}
-      #
-      # - name: Push Docker image
-      #   run: |
-      #     docker tag mcp-app:latest ghcr.io/${{ github.repository }}/mcp-app:latest
-      #     docker push ghcr.io/${{ github.repository }}/mcp-app:latest
-
+      - name: Push Docker image
+        run: docker push ghcr.io/${{ github.repository_owner }}/my-mcp:latest
