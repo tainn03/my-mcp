@@ -1,5 +1,6 @@
-package com.mcp.util;
+package com.mcp.service.impl;
 
+import com.mcp.service.PathService;
 import jakarta.annotation.PostConstruct;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -18,12 +19,12 @@ import java.util.List;
 @Component
 @FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
 @Slf4j
-public class PathValidator {
+public class PathServiceImpl implements PathService {
     List<String> allowedDirsString;
     List<Path> allowedPaths;
 
     @Autowired
-    public PathValidator(@Value("${allowed.dirs:}") String allowedDirs) {
+    public PathServiceImpl(@Value("${allowed.dirs:}") String allowedDirs) {
         if (allowedDirs == null || allowedDirs.isBlank()) {
             throw new IllegalStateException("allowed.dirs property not set or empty");
         }

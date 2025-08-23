@@ -3,7 +3,7 @@ package com.mcp.tool;
 import com.mcp.model.EditFileArgs;
 import com.mcp.service.FileService;
 import com.mcp.service.FileWatcherService;
-import com.mcp.util.PathValidator;
+import com.mcp.service.PathService;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
 import org.springframework.ai.tool.annotation.Tool;
@@ -21,7 +21,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @FieldDefaults(level = lombok.AccessLevel.PRIVATE, makeFinal = true)
 public class FileTools {
-    PathValidator pathValidator;
+    PathService pathValidator;
     FileWatcherService fileWatcherService;
     FileService fileService;
 
@@ -128,13 +128,15 @@ public class FileTools {
         return fileService.editFile(validPath, editFileArgs.edits(), editFileArgs.dryRun());
     }
 
-    @Tool(name = "f08_check_problems", description = "Check error for a particular file.")
-    public String checkProblems() {
-        return "Not implemented yet";
-    }
-
-    @Tool(name = "f09_get_changes", description = "Get diffs of changed files.")
-    public String getChanges() {
-        return "Not implemented yet";
+    /**
+     * Tool to get diffs of changed files with the latest commit in the specified directory
+     *
+     * @param dirPath The path to the directory to check for changes
+     * @return A unified diff of the changes, or an error message if an error occurs
+     */
+    @Tool(name = "f08_get_changes", description = "Get diffs of changed files.")
+    public String getChanges(@ToolParam String dirPath) {
+        Path validDirPath = pathValidator.validatePath(dirPath);
+        return fileService.getChanges(validDirPath);
     }
 }
