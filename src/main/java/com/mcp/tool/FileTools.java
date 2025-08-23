@@ -86,4 +86,25 @@ public class FileTools {
             return "ERROR WRITING TO FILE: " + validPath + " - " + e.getMessage();
         }
     }
+
+    /**
+     * Tool to move or rename a file or directory
+     *
+     * @param sourcePath The path to the source file or directory
+     * @param targetPath The path to the target file or directory
+     * @return A success message or an error message if an error occurs
+     */
+    @Tool(name = "move_file", description = "Move or rename a file or directory")
+    public String moveFile(@ToolParam String sourcePath, @ToolParam String targetPath) {
+        Path validSourcePath = pathValidator.validatePath(sourcePath);
+        Path validTargetPath = pathValidator.validatePath(targetPath);
+        try {
+            Files.move(validSourcePath, validTargetPath);
+            fileWatcherService.handleFileEvent(StandardWatchEventKinds.ENTRY_DELETE, validSourcePath);
+            fileWatcherService.handleFileEvent(StandardWatchEventKinds.ENTRY_CREATE, validTargetPath);
+            return "SUCCESS MOVED FILE FROM: " + validSourcePath + " TO: " + validTargetPath;
+        } catch (IOException e) {
+            return "ERROR MOVING FILE FROM: " + validSourcePath + " TO: " + validTargetPath + " - " + e.getMessage();
+        }
+    }
 }
