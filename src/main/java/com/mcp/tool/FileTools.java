@@ -6,7 +6,6 @@ import com.mcp.service.FileWatcherService;
 import com.mcp.util.PathValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
@@ -21,7 +20,6 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = lombok.AccessLevel.PRIVATE, makeFinal = true)
-@Slf4j
 public class FileTools {
     PathValidator pathValidator;
     FileWatcherService fileWatcherService;
