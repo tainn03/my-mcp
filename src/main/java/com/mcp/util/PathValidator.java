@@ -1,0 +1,86 @@
+package com.mcp.util;
+
+import jakarta.annotation.PostConstruct;
+import lombok.AccessLevel;
+import lombok.Getter;
+import lombok.experimental.FieldDefaults;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.Arrays;
+import java.util.List;
+
+@Component
+@FieldDefaults(level = AccessLevel.PRIVATE, makeFinal = true)
+@Slf4j
+public class PathValidator {
+    List<String> allowedDirsString;
+    List<Path> allowedPaths;
+
+    public PathValidator() {
+        String env = System.getenv("ALLOWED_DIRS");
+        if (env == null || env.isBlank()) {
+            throw new IllegalStateException("ENVIRONMENT VARIABLE ALLOWED_DIRS NOT SET OR EMPTY");
+        }
+        List<String> allowedDirs = Arrays.asList(env.split(","));
+        this.allowedDirsString = allowedDirs;
+        this.allowedPaths = allowedDirs.stream()
+                .map(p -> Paths.get(p).toAbsolutePath().normalize())
+                .toList();
+    }
+
+    @PostConstruct
+    public void init() {
+        for(Path path : allowedPaths) {
+            if(Files.exists(path) && !Files.isDirectory(path)) {
+                throw new IllegalStateException(path.toAbsolutePath().normalize() + " IS NOT A DIRECTORY");
+            } else {
+                try{
+                    Files.createDirectories(path);
+                } catch (IOException e) {
+                    throw new RuntimeException("FAILED TO CREATE DIRECTORY " + path.toAbsolutePath().normalize(), e);
+                }
+            }
+        }
+    }
+
+    /**
+     * Check if the given path is within any of the allowed directories
+     *
+     * @param path The path to check
+     * @return true if the path is allowed, false otherwise
+     */
+    private boolean isAllowed(Path path) {
+        return allowedPaths.stream()
+                .anyMatch(path::startsWith);
+    }
+
+    /**
+     * Validate the given path and return the normalized absolute path if valid
+     *
+     * @param inputPath The input path as a string
+     * @return The normalized absolute path if valid
+     * @throws SecurityException if the path is not allowed
+     */
+    public Path validatePath(String inputPath) {
+        Path path = Paths.get(inputPath).toAbsolutePath().normalize();
+        if(isAllowed(path)) {
+            return path;
+        }
+        throw new SecurityException("ACCESS DENIED TO PATH: " + inputPath + ". ALLOWED DIRECTORIES: " + allowedDirsString);
+    }
+
+    /**
+     * Get the list of allowed directories as strings
+     *
+     * @return List of allowed directories
+     */
+    public List<String> getAllowedDirsAsString() {
+        return allowedDirsString;
+    }
+}
