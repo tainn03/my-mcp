@@ -112,7 +112,7 @@ public class FileWatcherService {
      * @param kind     The kind of event
      * @param fullPath The full path of the affected file
      */
-    private void handleFileEvent(WatchEvent.Kind<?> kind, Path fullPath) {
+    public void handleFileEvent(WatchEvent.Kind<?> kind, Path fullPath) {
         String uri = "file://" + fullPath.toAbsolutePath().toString();
         log.info("EVENT {} ON FILE {}", kind.name(), uri);
 

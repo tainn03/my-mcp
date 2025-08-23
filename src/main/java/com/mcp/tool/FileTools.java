@@ -1,5 +1,6 @@
 package com.mcp.tool;
 
+import com.mcp.service.FileWatcherService;
 import com.mcp.util.AppendUtils;
 import com.mcp.util.PathValidator;
 import lombok.RequiredArgsConstructor;
@@ -12,6 +13,8 @@ import org.springframework.stereotype.Service;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.nio.file.StandardWatchEventKinds;
 import java.util.List;
 
 @Service
@@ -20,6 +23,7 @@ import java.util.List;
 @Slf4j
 public class FileTools {
     PathValidator pathValidator;
+    FileWatcherService fileWatcherService;
 
     /**
      * Tool to read the contents of a file
@@ -62,5 +66,24 @@ public class FileTools {
             }
         }
         return results.toString();
+    }
+
+    /**
+     * Tool to write content to a file, creating it if it doesn't exist or overwriting it if it does
+     *
+     * @param path    The path to the file
+     * @param content The content to write to the file
+     * @return A success message or an error message if an error occurs
+     */
+    @Tool(name = "write_file", description = "Write content to a file, creating it if it doesn't exist or overwriting it if it does")
+    public String writeFile(@ToolParam String path, @ToolParam String content) {
+        Path validPath = pathValidator.validatePath(path);
+        try {
+            Files.writeString(validPath, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+            fileWatcherService.handleFileEvent(StandardWatchEventKinds.ENTRY_MODIFY, validPath);
+            return "SUCCESS WROTE TO FILE: " + validPath;
+        } catch (IOException e) {
+            return "ERROR WRITING TO FILE: " + validPath + " - " + e.getMessage();
+        }
     }
 }
