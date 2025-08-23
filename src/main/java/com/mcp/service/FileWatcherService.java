@@ -56,54 +56,78 @@ public class FileWatcherService {
      * Start the file watching thread
      */
     private void startFileWatching() {
-        threadExecutor.submit(() -> {
-            while (!Thread.currentThread().isInterrupted()) {
-                WatchKey key;
-                try {
-                    key = watcher.take();
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    log.info("FILE WATCHER THREAD INTERRUPTED");
-                    break;
-                }
+        threadExecutor.submit(this::watchLoop);
+    }
 
-                Path dir = watchKeyMap.get(key);
-                if (dir == null) {
-                    log.warn("WATCH KEY NOT RECOGNIZED");
-                    continue;
-                }
+    /**
+     * The main loop for watching file system events
+     */
+    private void watchLoop() {
+        while (!Thread.currentThread().isInterrupted()) {
+            WatchKey key = takeWatchKey();
+            if (key == null) break;
+            processWatchKey(key);
+        }
+    }
 
-                for (WatchEvent<?> event : key.pollEvents()) {
-                    WatchEvent.Kind<?> kind = event.kind();
+    /**
+     * Set the callback to be invoked on resource changes
+     *
+     * @return The current resource change callback
+     */
+    private WatchKey takeWatchKey() {
+        try {
+            return watcher.take();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            log.info("FILE WATCHER THREAD INTERRUPTED");
+            return null;
+        }
+    }
 
-                    if (kind == StandardWatchEventKinds.OVERFLOW) {
-                        log.warn("OVERFLOW EVENT");
-                        continue;
-                    }
+    /**
+     * Process a WatchKey by handling its events
+     *
+     * @param key The WatchKey to process
+     */
+    private void processWatchKey(WatchKey key) {
+        Path dir = watchKeyMap.get(key);
+        if (dir == null) {
+            log.warn("WATCH KEY NOT RECOGNIZED");
+            return;
+        }
+        for (WatchEvent<?> event : key.pollEvents()) {
+            processWatchEvent(event, dir);
+        }
+    }
 
-                    @SuppressWarnings("unchecked")
-                    WatchEvent<Path> pathEvent = (WatchEvent<Path>) event;
-                    Path filename = pathEvent.context();
-                    Path fullPath = dir.resolve(filename);
+    /**
+     * Process a single WatchEvent
+     *
+     * @param event The WatchEvent to process
+     * @param dir   The directory associated with the WatchKey
+     */
+    private void processWatchEvent(WatchEvent<?> event, Path dir) {
+        WatchEvent.Kind<?> kind = event.kind();
+        if (kind == StandardWatchEventKinds.OVERFLOW) {
+            log.warn("OVERFLOW EVENT");
+            return;
+        }
+        @SuppressWarnings("unchecked")
+        WatchEvent<Path> pathEvent = (WatchEvent<Path>) event;
+        Path filename = pathEvent.context();
+        Path fullPath = dir.resolve(filename);
 
-                    handleFileEvent(kind, fullPath);
+        handleFileEvent(kind, fullPath);
 
-                    if (kind == StandardWatchEventKinds.ENTRY_CREATE && Files.isDirectory(fullPath)) {
-                        try {
-                            registerDirectoryForWatching(fullPath);
-                        } catch (IOException e) {
-                            log.error("FAILED TO REGISTER NEW DIRECTORY {}", fullPath, e);
-                            throw new RuntimeException(e);
-                        }
-                    }
-                }
-
-                boolean valid = key.reset();
-                if (!valid) {
-                    watchKeyMap.remove(key);
-                }
+        if (kind == StandardWatchEventKinds.ENTRY_CREATE && Files.isDirectory(fullPath)) {
+            try {
+                registerDirectoryForWatching(fullPath);
+            } catch (IOException e) {
+                log.error("FAILED TO REGISTER NEW DIRECTORY {}", fullPath, e);
+                throw new RuntimeException(e);
             }
-        });
+        }
     }
 
     /**
