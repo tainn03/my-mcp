@@ -37,6 +37,7 @@ jobs:
       #     password: ${{ secrets.GITHUB_TOKEN }}
       #
       # - name: Push Docker image
-      #   run: docker tag mcp-app:latest ghcr.io/${{ github.repository }}/mcp-app:latest
-      #   run: docker push ghcr.io/${{ github.repository }}/mcp-app:latest
+      #   run: |
+      #     docker tag mcp-app:latest ghcr.io/${{ github.repository }}/mcp-app:latest
+      #     docker push ghcr.io/${{ github.repository }}/mcp-app:latest
 
