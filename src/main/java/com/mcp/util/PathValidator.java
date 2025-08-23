@@ -4,6 +4,8 @@ import jakarta.annotation.PostConstruct;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
@@ -20,14 +22,14 @@ public class PathValidator {
     List<String> allowedDirsString;
     List<Path> allowedPaths;
 
-    public PathValidator() {
-        String env = System.getenv("ALLOWED_DIRS");
-        if (env == null || env.isBlank()) {
-            throw new IllegalStateException("ENVIRONMENT VARIABLE ALLOWED_DIRS NOT SET OR EMPTY");
+    @Autowired
+    public PathValidator(@Value("${allowed.dirs:}") String allowedDirs) {
+        if (allowedDirs == null || allowedDirs.isBlank()) {
+            throw new IllegalStateException("allowed.dirs property not set or empty");
         }
-        List<String> allowedDirs = Arrays.asList(env.split(","));
-        this.allowedDirsString = allowedDirs;
-        this.allowedPaths = allowedDirs.stream()
+        List<String> allowedDirsList = Arrays.asList(allowedDirs.split(","));
+        this.allowedDirsString = allowedDirsList;
+        this.allowedPaths = allowedDirsList.stream()
                 .map(p -> Paths.get(p).toAbsolutePath().normalize())
                 .toList();
     }
