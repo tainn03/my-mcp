@@ -1,5 +1,6 @@
 package com.mcp.tool;
 
+import com.mcp.service.FileVisitorService;
 import com.mcp.service.FileWatcherService;
 import com.mcp.util.AppendUtils;
 import com.mcp.util.PathValidator;
@@ -11,14 +12,12 @@ import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.StandardOpenOption;
-import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.*;
 import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
 
 @Service
@@ -33,7 +32,7 @@ public class FileTools {
      * Tool to read the contents of a file
      *
      * @param path The path to the file
-     * @return The contents of the file, or null if an error occurs
+     * @return The contents of the file, or an error message if an error occurs
      */
     @Tool(name = "read_file", description = "Read the contents of a file")
     public String readFile(@ToolParam String path) {
@@ -41,7 +40,7 @@ public class FileTools {
         try {
             return Files.readString(validPath);
         } catch (IOException e) {
-            return null;
+            return "ERROR READING FILE: " + validPath + " - " + e.getMessage();
         }
     }
 
@@ -58,9 +57,8 @@ public class FileTools {
         for (String pathStr : pathsToRead) {
             Path validPath = pathValidator.validatePath(pathStr);
             if (Files.isDirectory(validPath)) {
-                try {
-                    Files.walk(validPath)
-                            .filter(Files::isRegularFile)
+                try (java.util.stream.Stream<Path> stream = Files.walk(validPath)) {
+                    stream.filter(Files::isRegularFile)
                             .forEach(file -> AppendUtils.appendFileContent(results, file));
                 } catch (IOException e) {
                     AppendUtils.appendError(results, validPath, e);
@@ -143,5 +141,31 @@ public class FileTools {
         } catch (IOException e) {
             return String.format("ERROR GETTING INFO FOR FILE: %s - %s", validPath, e.getMessage());
         }
+    }
+
+    /**
+     * Tool to search for files and directories matching a glob pattern, with optional exclusion patterns
+     *
+     * @param path            The starting directory path for the search
+     * @param pattern         The glob pattern to match files and directories
+     * @param excludePatterns A list of glob patterns to exclude from the search
+     * @return A list of matching file and directory paths, or an error message if an error occurs
+     */
+    @Tool(name = "search_files", description = "Search for files and directories matching a glob pattern.")
+    public String searchFiles(@ToolParam String path, @ToolParam String pattern, @ToolParam List<String> excludePatterns) {
+        Path startPath = pathValidator.validatePath(path);
+        PathMatcher patternMatcher = FileSystems.getDefault().getPathMatcher("glob:" + pattern);
+        List<PathMatcher> excludeMatchers = (excludePatterns == null) ? Collections.emptyList() : excludePatterns.stream()
+                .map(p -> FileSystems.getDefault().getPathMatcher("glob:" + p))
+                .toList();
+
+        FileVisitorService visitor = new FileVisitorService(startPath, patternMatcher, excludeMatchers);
+        try {
+            Files.walkFileTree(startPath, visitor);
+        } catch (IOException e) {
+            return "ERROR SEARCHING FILES: " + e.getMessage();
+        }
+        List<String> results = visitor.getResults();
+        return results.isEmpty() ? "NO MATCHES FOUND" : String.join("\n", results);
     }
 }
