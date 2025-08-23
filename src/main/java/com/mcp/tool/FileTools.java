@@ -31,7 +31,7 @@ public class FileTools {
      * @param path The path to the file
      * @return The contents of the file, or an error message if an error occurs
      */
-    @Tool(name = "read_file", description = "Read the contents of a file")
+    @Tool(name = "f01_read_file", description = "Read the contents of a file")
     public String readFile(@ToolParam String path) {
         Path validPath = pathValidator.validatePath(path);
         return fileService.readFile(validPath);
@@ -43,7 +43,7 @@ public class FileTools {
      * @param paths A list of file or directory paths to read. If empty, reads from all allowed directories.
      * @return The contents of the files, or error messages if any occur
      */
-    @Tool(name = "read_multiple_files", description = "Read the contents of multiple files or all files in a directory")
+    @Tool(name = "f02_read_multiple_files", description = "Read the contents of multiple files or all files in a directory")
     public String readMultipleFiles(@ToolParam List<String> paths) {
         List<String> pathsToRead = (paths == null || paths.isEmpty()) ? pathValidator.getAllowedDirsAsString() : paths;
         List<Path> validPaths = pathsToRead.stream().map(pathValidator::validatePath).toList();
@@ -57,7 +57,7 @@ public class FileTools {
      * @param content The content to write to the file
      * @return A success message or an error message if an error occurs
      */
-    @Tool(name = "write_file", description = "Write content to a file, creating it if it doesn't exist or overwriting it if it does")
+    @Tool(name = "f03_write_file", description = "Write content to a file, creating it if it doesn't exist or overwriting it if it does")
     public String writeFile(@ToolParam String path, @ToolParam String content) {
         Path validPath = pathValidator.validatePath(path);
         String result = fileService.writeFile(validPath, content);
@@ -74,7 +74,7 @@ public class FileTools {
      * @param targetPath The path to the target file or directory
      * @return A success message or an error message if an error occurs
      */
-    @Tool(name = "move_file", description = "Move or rename a file or directory")
+    @Tool(name = "f04_move_file", description = "Move or rename a file or directory")
     public String moveFile(@ToolParam String sourcePath, @ToolParam String targetPath) {
         Path validSourcePath = pathValidator.validatePath(sourcePath);
         Path validTargetPath = pathValidator.validatePath(targetPath);
@@ -92,7 +92,7 @@ public class FileTools {
      * @param path The path to the file or directory
      * @return A string containing detailed information about the file or directory, or an error message if an error occurs
      */
-    @Tool(name = "get_file_info", description = "Get detailed information about a file or directory.")
+    @Tool(name = "f05_get_file_info", description = "Get detailed information about a file or directory.")
     public String getFileInfo(@ToolParam String path) {
         Path validPath = pathValidator.validatePath(path);
         return fileService.getFileInfo(validPath);
@@ -106,7 +106,7 @@ public class FileTools {
      * @param excludePatterns A list of glob patterns to exclude from the search
      * @return A list of matching file and directory paths, or an error message if an error occurs
      */
-    @Tool(name = "search_files", description = "Search for files and directories matching a glob pattern.")
+    @Tool(name = "f06_search_files", description = "Search for files and directories matching a glob pattern.")
     public String searchFiles(@ToolParam String path, @ToolParam String pattern, @ToolParam List<String> excludePatterns) {
         Path startPath = pathValidator.validatePath(path);
         PathMatcher patternMatcher = FileSystems.getDefault().getPathMatcher("glob:" + pattern);
@@ -122,9 +122,19 @@ public class FileTools {
      * @param editFileArgs An EditFileArgs object containing the path to the file, a list of Edit objects specifying the text replacements, and an optional dryRun flag
      * @return A unified diff of the changes made, or an error message if an error occurs
      */
-    @Tool(name = "edit_file", description = "Perform a series of text replacements in a file.")
+    @Tool(name = "f07_edit_file", description = "Perform a series of text replacements in a file.")
     public String editFile(EditFileArgs editFileArgs) {
         Path validPath = pathValidator.validatePath(editFileArgs.path());
         return fileService.editFile(validPath, editFileArgs.edits(), editFileArgs.dryRun());
+    }
+
+    @Tool(name = "f08_check_problems", description = "Check error for a particular file.")
+    public String checkProblems() {
+        return "Not implemented yet";
+    }
+
+    @Tool(name = "f09_get_changes", description = "Get diffs of changed files.")
+    public String getChanges() {
+        return "Not implemented yet";
     }
 }
