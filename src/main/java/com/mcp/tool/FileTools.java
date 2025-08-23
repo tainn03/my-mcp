@@ -15,6 +15,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardOpenOption;
 import java.nio.file.StandardWatchEventKinds;
+import java.nio.file.attribute.BasicFileAttributes;
+import java.nio.file.attribute.PosixFilePermissions;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @Service
@@ -105,6 +109,39 @@ public class FileTools {
             return "SUCCESS MOVED FILE FROM: " + validSourcePath + " TO: " + validTargetPath;
         } catch (IOException e) {
             return "ERROR MOVING FILE FROM: " + validSourcePath + " TO: " + validTargetPath + " - " + e.getMessage();
+        }
+    }
+
+    /**
+     * Tool to get detailed information about a file or directory
+     *
+     * @param path The path to the file or directory
+     * @return A string containing detailed information about the file or directory, or an error message if an error occurs
+     */
+    @Tool(name = "get_file_info", description = "Get detailed information about a file or directory.")
+    public String getFileInfo(@ToolParam String path) {
+        Path validPath = pathValidator.validatePath(path);
+        try {
+            BasicFileAttributes attrs = Files.readAttributes(validPath, BasicFileAttributes.class);
+            DateTimeFormatter formatter = DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.systemDefault());
+            String permissions;
+            try {
+                permissions = PosixFilePermissions.toString(Files.getPosixFilePermissions(validPath));
+            } catch (UnsupportedOperationException e) {
+                permissions = "N/A";
+            }
+            return String.format(
+                    "Size: %d bytes%nCreated: %s%nModified: %s%nAccessed: %s%nIs Directory: %b%nIs File: %b%nPermissions: %s",
+                    attrs.size(),
+                    formatter.format(attrs.creationTime().toInstant()),
+                    formatter.format(attrs.lastModifiedTime().toInstant()),
+                    formatter.format(attrs.lastAccessTime().toInstant()),
+                    attrs.isDirectory(),
+                    attrs.isRegularFile(),
+                    permissions
+            );
+        } catch (IOException e) {
+            return String.format("ERROR GETTING INFO FOR FILE: %s - %s", validPath, e.getMessage());
         }
     }
 }
