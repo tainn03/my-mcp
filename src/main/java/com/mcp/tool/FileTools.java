@@ -1,13 +1,8 @@
 package com.mcp.tool;
 
-import com.github.difflib.DiffUtils;
-import com.github.difflib.UnifiedDiffUtils;
-import com.github.difflib.patch.Patch;
-import com.mcp.model.Edit;
 import com.mcp.model.EditFileArgs;
-import com.mcp.service.FileVisitorService;
+import com.mcp.service.FileService;
 import com.mcp.service.FileWatcherService;
-import com.mcp.util.AppendUtils;
 import com.mcp.util.PathValidator;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
@@ -16,13 +11,10 @@ import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.nio.file.*;
-import java.nio.file.attribute.BasicFileAttributes;
-import java.nio.file.attribute.PosixFilePermissions;
-import java.time.ZoneId;
-import java.time.format.DateTimeFormatter;
-import java.util.Arrays;
+import java.nio.file.FileSystems;
+import java.nio.file.Path;
+import java.nio.file.PathMatcher;
+import java.nio.file.StandardWatchEventKinds;
 import java.util.Collections;
 import java.util.List;
 
@@ -33,6 +25,7 @@ import java.util.List;
 public class FileTools {
     PathValidator pathValidator;
     FileWatcherService fileWatcherService;
+    FileService fileService;
 
     /**
      * Tool to read the contents of a file
@@ -43,11 +36,7 @@ public class FileTools {
     @Tool(name = "read_file", description = "Read the contents of a file")
     public String readFile(@ToolParam String path) {
         Path validPath = pathValidator.validatePath(path);
-        try {
-            return Files.readString(validPath);
-        } catch (IOException e) {
-            return "ERROR READING FILE: " + validPath + " - " + e.getMessage();
-        }
+        return fileService.readFile(validPath);
     }
 
     /**
@@ -59,21 +48,8 @@ public class FileTools {
     @Tool(name = "read_multiple_files", description = "Read the contents of multiple files or all files in a directory")
     public String readMultipleFiles(@ToolParam List<String> paths) {
         List<String> pathsToRead = (paths == null || paths.isEmpty()) ? pathValidator.getAllowedDirsAsString() : paths;
-        StringBuilder results = new StringBuilder();
-        for (String pathStr : pathsToRead) {
-            Path validPath = pathValidator.validatePath(pathStr);
-            if (Files.isDirectory(validPath)) {
-                try (java.util.stream.Stream<Path> stream = Files.walk(validPath)) {
-                    stream.filter(Files::isRegularFile)
-                            .forEach(file -> AppendUtils.appendFileContent(results, file));
-                } catch (IOException e) {
-                    AppendUtils.appendError(results, validPath, e);
-                }
-            } else {
-                AppendUtils.appendFileContent(results, validPath);
-            }
-        }
-        return results.toString();
+        List<Path> validPaths = pathsToRead.stream().map(pathValidator::validatePath).toList();
+        return fileService.readMultipleFiles(validPaths);
     }
 
     /**
@@ -86,13 +62,11 @@ public class FileTools {
     @Tool(name = "write_file", description = "Write content to a file, creating it if it doesn't exist or overwriting it if it does")
     public String writeFile(@ToolParam String path, @ToolParam String content) {
         Path validPath = pathValidator.validatePath(path);
-        try {
-            Files.writeString(validPath, content, StandardOpenOption.CREATE, StandardOpenOption.TRUNCATE_EXISTING);
+        String result = fileService.writeFile(validPath, content);
+        if (result.startsWith("SUCCESS")) {
             fileWatcherService.handleFileEvent(StandardWatchEventKinds.ENTRY_MODIFY, validPath);
-            return "SUCCESS WROTE TO FILE: " + validPath;
-        } catch (IOException e) {
-            return "ERROR WRITING TO FILE: " + validPath + " - " + e.getMessage();
         }
+        return result;
     }
 
     /**
@@ -106,14 +80,12 @@ public class FileTools {
     public String moveFile(@ToolParam String sourcePath, @ToolParam String targetPath) {
         Path validSourcePath = pathValidator.validatePath(sourcePath);
         Path validTargetPath = pathValidator.validatePath(targetPath);
-        try {
-            Files.move(validSourcePath, validTargetPath);
+        String result = fileService.moveFile(validSourcePath, validTargetPath);
+        if (result.startsWith("SUCCESS")) {
             fileWatcherService.handleFileEvent(StandardWatchEventKinds.ENTRY_DELETE, validSourcePath);
             fileWatcherService.handleFileEvent(StandardWatchEventKinds.ENTRY_CREATE, validTargetPath);
-            return "SUCCESS MOVED FILE FROM: " + validSourcePath + " TO: " + validTargetPath;
-        } catch (IOException e) {
-            return "ERROR MOVING FILE FROM: " + validSourcePath + " TO: " + validTargetPath + " - " + e.getMessage();
         }
+        return result;
     }
 
     /**
@@ -125,28 +97,7 @@ public class FileTools {
     @Tool(name = "get_file_info", description = "Get detailed information about a file or directory.")
     public String getFileInfo(@ToolParam String path) {
         Path validPath = pathValidator.validatePath(path);
-        try {
-            BasicFileAttributes attrs = Files.readAttributes(validPath, BasicFileAttributes.class);
-            DateTimeFormatter formatter = DateTimeFormatter.ISO_INSTANT.withZone(ZoneId.systemDefault());
-            String permissions;
-            try {
-                permissions = PosixFilePermissions.toString(Files.getPosixFilePermissions(validPath));
-            } catch (UnsupportedOperationException e) {
-                permissions = "N/A";
-            }
-            return String.format(
-                    "Size: %d bytes%nCreated: %s%nModified: %s%nAccessed: %s%nIs Directory: %b%nIs File: %b%nPermissions: %s",
-                    attrs.size(),
-                    formatter.format(attrs.creationTime().toInstant()),
-                    formatter.format(attrs.lastModifiedTime().toInstant()),
-                    formatter.format(attrs.lastAccessTime().toInstant()),
-                    attrs.isDirectory(),
-                    attrs.isRegularFile(),
-                    permissions
-            );
-        } catch (IOException e) {
-            return String.format("ERROR GETTING INFO FOR FILE: %s - %s", validPath, e.getMessage());
-        }
+        return fileService.getFileInfo(validPath);
     }
 
     /**
@@ -164,15 +115,7 @@ public class FileTools {
         List<PathMatcher> excludeMatchers = (excludePatterns == null) ? Collections.emptyList() : excludePatterns.stream()
                 .map(p -> FileSystems.getDefault().getPathMatcher("glob:" + p))
                 .toList();
-
-        FileVisitorService visitor = new FileVisitorService(startPath, patternMatcher, excludeMatchers);
-        try {
-            Files.walkFileTree(startPath, visitor);
-        } catch (IOException e) {
-            return "ERROR SEARCHING FILES: " + e.getMessage();
-        }
-        List<String> results = visitor.getResults();
-        return results.isEmpty() ? "NO MATCHES FOUND" : String.join("\n", results);
+        return fileService.searchFiles(startPath, patternMatcher, excludeMatchers);
     }
 
     /**
@@ -184,38 +127,6 @@ public class FileTools {
     @Tool(name = "edit_file", description = "Perform a series of text replacements in a file.")
     public String editFile(EditFileArgs editFileArgs) {
         Path validPath = pathValidator.validatePath(editFileArgs.path());
-        String originalContent;
-        try {
-            originalContent = Files.readString(validPath);
-        } catch (IOException e) {
-            return "ERROR READING FILE: " + validPath + " - " + e.getMessage();
-        }
-        String modifiedContent = originalContent;
-
-        for (Edit edit : editFileArgs.edits()) {
-            String oldText = edit.oldText().replace("\r\n", "\n");
-            String newText = edit.newText().replace("\r\n", "\n");
-            if (!modifiedContent.contains(oldText)) {
-                return "ERROR: TEXT TO REPLACE NOT FOUND IN FILE: " + validPath + " - TEXT: " + oldText;
-            }
-            modifiedContent = modifiedContent.replace(oldText, newText);
-        }
-
-        List<String> originalLines = Arrays.asList(originalContent.split("\n"));
-        List<String> modifiedLines = Arrays.asList(modifiedContent.split("\n"));
-        Patch<String> patch = DiffUtils.diff(originalLines, modifiedLines);
-        List<String> unifiedDiff = UnifiedDiffUtils.generateUnifiedDiff(validPath.toString(), validPath.toString(), originalLines, patch, 3);
-        String diffString = String.join("\n", unifiedDiff);
-        String resultMessage = "```diff\n" + diffString + "\n```";
-
-        if (editFileArgs.dryRun() == null || !editFileArgs.dryRun()) {
-            try {
-                Files.writeString(validPath, modifiedContent);
-            } catch (IOException e) {
-                return "ERROR WRITING TO FILE: " + validPath + " - " + e.getMessage();
-            }
-            fileWatcherService.handleFileEvent(StandardWatchEventKinds.ENTRY_MODIFY, validPath);
-        }
-        return resultMessage;
+        return fileService.editFile(validPath, editFileArgs.edits(), editFileArgs.dryRun());
     }
 }
