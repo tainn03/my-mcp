@@ -1,5 +1,10 @@
 package com.mcp.tool;
 
+import com.github.difflib.DiffUtils;
+import com.github.difflib.UnifiedDiffUtils;
+import com.github.difflib.patch.Patch;
+import com.mcp.model.Edit;
+import com.mcp.model.EditFileArgs;
 import com.mcp.service.FileVisitorService;
 import com.mcp.service.FileWatcherService;
 import com.mcp.util.AppendUtils;
@@ -17,6 +22,7 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.nio.file.attribute.PosixFilePermissions;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 
@@ -167,5 +173,49 @@ public class FileTools {
         }
         List<String> results = visitor.getResults();
         return results.isEmpty() ? "NO MATCHES FOUND" : String.join("\n", results);
+    }
+
+    /**
+     * Tool to perform a series of text replacements in a file, with an option for a dry run
+     *
+     * @param editFileArgs An EditFileArgs object containing the path to the file, a list of Edit objects specifying the text replacements, and an optional dryRun flag
+     * @return A unified diff of the changes made, or an error message if an error occurs
+     */
+    @Tool(name = "edit_file", description = "Perform a series of text replacements in a file.")
+    public String editFile(EditFileArgs editFileArgs) {
+        Path validPath = pathValidator.validatePath(editFileArgs.path());
+        String originalContent;
+        try {
+            originalContent = Files.readString(validPath);
+        } catch (IOException e) {
+            return "ERROR READING FILE: " + validPath + " - " + e.getMessage();
+        }
+        String modifiedContent = originalContent;
+
+        for (Edit edit : editFileArgs.edits()) {
+            String oldText = edit.oldText().replace("\r\n", "\n");
+            String newText = edit.newText().replace("\r\n", "\n");
+            if (!modifiedContent.contains(oldText)) {
+                return "ERROR: TEXT TO REPLACE NOT FOUND IN FILE: " + validPath + " - TEXT: " + oldText;
+            }
+            modifiedContent = modifiedContent.replace(oldText, newText);
+        }
+
+        List<String> originalLines = Arrays.asList(originalContent.split("\n"));
+        List<String> modifiedLines = Arrays.asList(modifiedContent.split("\n"));
+        Patch<String> patch = DiffUtils.diff(originalLines, modifiedLines);
+        List<String> unifiedDiff = UnifiedDiffUtils.generateUnifiedDiff(validPath.toString(), validPath.toString(), originalLines, patch, 3);
+        String diffString = String.join("\n", unifiedDiff);
+        String resultMessage = "```diff\n" + diffString + "\n```";
+
+        if (editFileArgs.dryRun() == null || !editFileArgs.dryRun()) {
+            try {
+                Files.writeString(validPath, modifiedContent);
+            } catch (IOException e) {
+                return "ERROR WRITING TO FILE: " + validPath + " - " + e.getMessage();
+            }
+            fileWatcherService.handleFileEvent(StandardWatchEventKinds.ENTRY_MODIFY, validPath);
+        }
+        return resultMessage;
     }
 }
