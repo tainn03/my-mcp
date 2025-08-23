@@ -33,7 +33,6 @@ public class FileTools {
         try {
             return Files.readString(validPath);
         } catch (IOException e) {
-            log.error("FAILED TO READ FILE {}", path, e);
             return null;
         }
     }
@@ -44,7 +43,7 @@ public class FileTools {
      * @param paths A list of file or directory paths to read. If empty, reads from all allowed directories.
      * @return The contents of the files, or error messages if any occur
      */
-    @Tool(name = "readMultipleFiles", description = "Read the contents of multiple files or all files in a directory.")
+    @Tool(name = "read_multiple_files", description = "Read the contents of multiple files or all files in a directory")
     public String readMultipleFiles(@ToolParam List<String> paths) {
         List<String> pathsToRead = (paths == null || paths.isEmpty()) ? pathValidator.getAllowedDirsAsString() : paths;
         StringBuilder results = new StringBuilder();
@@ -56,7 +55,6 @@ public class FileTools {
                             .filter(Files::isRegularFile)
                             .forEach(file -> AppendUtils.appendFileContent(results, file));
                 } catch (IOException e) {
-                    log.error("FAILED TO READ FILE {}", pathStr, e);
                     AppendUtils.appendError(results, validPath, e);
                 }
             } else {

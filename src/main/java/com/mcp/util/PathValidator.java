@@ -2,12 +2,10 @@ package com.mcp.util;
 
 import jakarta.annotation.PostConstruct;
 import lombok.AccessLevel;
-import lombok.Getter;
 import lombok.experimental.FieldDefaults;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -36,11 +34,11 @@ public class PathValidator {
 
     @PostConstruct
     public void init() {
-        for(Path path : allowedPaths) {
-            if(Files.exists(path) && !Files.isDirectory(path)) {
+        for (Path path : allowedPaths) {
+            if (Files.exists(path) && !Files.isDirectory(path)) {
                 throw new IllegalStateException(path.toAbsolutePath().normalize() + " IS NOT A DIRECTORY");
             } else {
-                try{
+                try {
                     Files.createDirectories(path);
                 } catch (IOException e) {
                     throw new RuntimeException("FAILED TO CREATE DIRECTORY " + path.toAbsolutePath().normalize(), e);
@@ -55,7 +53,7 @@ public class PathValidator {
      * @param path The path to check
      * @return true if the path is allowed, false otherwise
      */
-    private boolean isAllowed(Path path) {
+    public boolean isAllowed(Path path) {
         return allowedPaths.stream()
                 .anyMatch(path::startsWith);
     }
@@ -69,7 +67,7 @@ public class PathValidator {
      */
     public Path validatePath(String inputPath) {
         Path path = Paths.get(inputPath).toAbsolutePath().normalize();
-        if(isAllowed(path)) {
+        if (isAllowed(path)) {
             return path;
         }
         throw new SecurityException("ACCESS DENIED TO PATH: " + inputPath + ". ALLOWED DIRECTORIES: " + allowedDirsString);
