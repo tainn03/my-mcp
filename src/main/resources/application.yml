@@ -10,8 +10,12 @@ spring:
 logging:
   level:
     root: OFF
-allowed:
-  dirs: ${ALLOWED_DIRS}
 app:
+  allowed:
+    dirs: ${ALLOWED_DIRS:}
+  host:
+    workspace: ${HOST_WORKSPACE:}
+  container:
+    workspace: ${CONTAINER_WORKSPACE:}
   screenshots:
-    api-key: ${SCREENSHOTS_API_KEY}
+    api-key: ${SCREENSHOTS_API_KEY:}
