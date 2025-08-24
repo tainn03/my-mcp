@@ -84,4 +84,14 @@ public class PathServiceImpl implements PathService {
     public List<String> getAllowedDirsAsString() {
         return allowedDirsString;
     }
+
+    /**
+     * Get the base path for relative paths (current working directory)
+     *
+     * @return The base path
+     */
+    @Override
+    public Path getCurrentWorkingDir() {
+        return Paths.get(".").toAbsolutePath().normalize();
+    }
 }
