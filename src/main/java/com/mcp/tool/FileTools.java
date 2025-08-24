@@ -21,7 +21,7 @@ import java.util.List;
 @RequiredArgsConstructor
 @FieldDefaults(level = lombok.AccessLevel.PRIVATE, makeFinal = true)
 public class FileTools {
-    PathService pathValidator;
+    PathService pathService;
     FileWatcherService fileWatcherService;
     FileService fileService;
 
@@ -33,7 +33,7 @@ public class FileTools {
      */
     @Tool(name = "f01_read_file", description = "Read the contents of a file")
     public String readFile(@ToolParam String path) {
-        Path validPath = pathValidator.validatePath(path);
+        Path validPath = pathService.validatePath(path);
         return fileService.readFile(validPath);
     }
 
@@ -44,9 +44,9 @@ public class FileTools {
      * @return The contents of the files, or error messages if any occur
      */
     @Tool(name = "f02_read_multiple_files", description = "Read the contents of multiple files or all files in a directory")
-    public String readMultipleFiles(@ToolParam List<String> paths) {
-        List<String> pathsToRead = (paths == null || paths.isEmpty()) ? pathValidator.getAllowedDirsAsString() : paths;
-        List<Path> validPaths = pathsToRead.stream().map(pathValidator::validatePath).toList();
+    public String readMultipleFiles(@ToolParam(required = false) List<String> paths) {
+        List<String> pathsToRead = (paths == null || paths.isEmpty()) ? pathService.getAllowedDirsAsString() : paths;
+        List<Path> validPaths = pathsToRead.stream().map(pathService::validatePath).toList();
         return fileService.readMultipleFiles(validPaths);
     }
 
@@ -59,7 +59,7 @@ public class FileTools {
      */
     @Tool(name = "f03_write_file", description = "Write content to a file, creating it if it doesn't exist or overwriting it if it does")
     public String writeFile(@ToolParam String path, @ToolParam String content) {
-        Path validPath = pathValidator.validatePath(path);
+        Path validPath = pathService.validatePath(path);
         String result = fileService.writeFile(validPath, content);
         if (result.startsWith("SUCCESS")) {
             fileWatcherService.handleFileEvent(StandardWatchEventKinds.ENTRY_MODIFY, validPath);
@@ -76,8 +76,8 @@ public class FileTools {
      */
     @Tool(name = "f04_move_file", description = "Move or rename a file or directory")
     public String moveFile(@ToolParam String sourcePath, @ToolParam String targetPath) {
-        Path validSourcePath = pathValidator.validatePath(sourcePath);
-        Path validTargetPath = pathValidator.validatePath(targetPath);
+        Path validSourcePath = pathService.validatePath(sourcePath);
+        Path validTargetPath = pathService.validatePath(targetPath);
         String result = fileService.moveFile(validSourcePath, validTargetPath);
         if (result.startsWith("SUCCESS")) {
             fileWatcherService.handleFileEvent(StandardWatchEventKinds.ENTRY_DELETE, validSourcePath);
@@ -94,7 +94,7 @@ public class FileTools {
      */
     @Tool(name = "f05_get_file_info", description = "Get detailed information about a file or directory.")
     public String getFileInfo(@ToolParam String path) {
-        Path validPath = pathValidator.validatePath(path);
+        Path validPath = pathService.validatePath(path);
         return fileService.getFileInfo(validPath);
     }
 
@@ -107,8 +107,10 @@ public class FileTools {
      * @return A list of matching file and directory paths, or an error message if an error occurs
      */
     @Tool(name = "f06_search_files", description = "Search for files and directories matching a glob pattern.")
-    public String searchFiles(@ToolParam String path, @ToolParam String pattern, @ToolParam List<String> excludePatterns) {
-        Path startPath = pathValidator.validatePath(path);
+    public String searchFiles(@ToolParam(required = false) String path,
+                              @ToolParam String pattern,
+                              @ToolParam(required = false) List<String> excludePatterns) {
+        Path startPath = (path == null || path.isBlank()) ? pathService.getCurrentWorkingDir() : pathService.validatePath(path);
         PathMatcher patternMatcher = FileSystems.getDefault().getPathMatcher("glob:" + pattern);
         List<PathMatcher> excludeMatchers = (excludePatterns == null) ? Collections.emptyList() : excludePatterns.stream()
                 .map(p -> FileSystems.getDefault().getPathMatcher("glob:" + p))
@@ -124,7 +126,7 @@ public class FileTools {
      */
     @Tool(name = "f07_edit_file", description = "Perform a series of text replacements in a file.")
     public String editFile(EditFileArgs editFileArgs) {
-        Path validPath = pathValidator.validatePath(editFileArgs.path());
+        Path validPath = pathService.validatePath(editFileArgs.path());
         return fileService.editFile(validPath, editFileArgs.edits(), editFileArgs.dryRun());
     }
 
@@ -135,8 +137,19 @@ public class FileTools {
      * @return A unified diff of the changes, or an error message if an error occurs
      */
     @Tool(name = "f08_get_changes", description = "Get diffs of changed files.")
-    public String getChanges(@ToolParam String dirPath) {
-        Path validDirPath = pathValidator.validatePath(dirPath);
+    public String getChanges(@ToolParam(required = false) String dirPath) {
+        Path validDirPath = (dirPath == null || dirPath.isBlank()) ? pathService.getCurrentWorkingDir() : pathService.validatePath(dirPath);
         return fileService.getChanges(validDirPath);
+    }
+
+    @Tool(name = "f09_search_by_keyword", description = "Search for files containing a specific keyword.")
+    public String searchByKeyword(@ToolParam(required = false) String path,
+                                  @ToolParam String keyword,
+                                  @ToolParam(required = false) List<String> excludePatterns) {
+        Path startPath = (path == null || path.isBlank()) ? pathService.getCurrentWorkingDir() : pathService.validatePath(path);
+        List<PathMatcher> excludeMatchers = (excludePatterns == null) ? Collections.emptyList() : excludePatterns.stream()
+                .map(p -> FileSystems.getDefault().getPathMatcher("glob:" + p))
+                .toList();
+        return fileService.searchByKeyword(startPath, keyword, excludeMatchers);
     }
 }

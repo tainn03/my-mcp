@@ -284,6 +284,43 @@ public class FileServiceImpl implements FileService {
         }
     }
 
+    /**
+     * Searches for files containing a specific keyword, with optional exclusion patterns.
+     *
+     * @param startPath       The starting directory path for the search.
+     * @param keyword         The keyword to search for within files.
+     * @param excludeMatchers A list of glob patterns to exclude from the search.
+     * @return A list of file paths containing the keyword, or an error message if an error occurs.
+     */
+    @Override
+    public String searchByKeyword(final Path startPath, final String keyword, final List<PathMatcher> excludeMatchers) {
+        final StringBuilder results = new StringBuilder();
+        try (Stream<Path> stream = Files.walk(startPath)) {
+            stream
+                    .filter(Files::isRegularFile)
+                    .filter(path -> excludeMatchers == null || excludeMatchers.stream().noneMatch(matcher -> matcher.matches(path)))
+                    .parallel()
+                    .forEach(path -> {
+                        try {
+                            if (Files.readString(path).contains(keyword)) {
+                                results.append(path).append(System.lineSeparator());
+                            }
+                        } catch (IOException ignored) {
+                            // Ignore files that cannot be read
+                        }
+                    });
+        } catch (IOException e) {
+            return "ERROR SEARCHING FILES BY KEYWORD: " + e.getMessage();
+        }
+        return results.isEmpty() ? "NO FILES FOUND WITH KEYWORD" : results.toString().trim();
+    }
+
+    /**
+     * Gets the name of the parent branch for the given path using Git.
+     *
+     * @param path The path to the file or directory.
+     * @return The name of the parent branch, or "develop" if it cannot be determined.
+     */
     private String getGitBranchName(Path path) {
         try {
             ProcessBuilder builder = new ProcessBuilder("git", "rev-parse", "--abbrev-ref", "HEAD@{upstream}");
