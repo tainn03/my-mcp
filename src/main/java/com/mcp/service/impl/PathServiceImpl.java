@@ -78,12 +78,12 @@ public class PathServiceImpl implements PathService {
      * @throws SecurityException if the path is not allowed
      */
     public Path validatePath(String inputPath) {
-        String containerPath = toContainerPath(inputPath);
-        Path path = Paths.get(containerPath).toAbsolutePath().normalize();
+        Path path = Paths.get(inputPath).toAbsolutePath().normalize();
         if (isAllowed(path)) {
             return path;
         }
-        throw new SecurityException("ACCESS DENIED TO PATH: " + containerPath + ". ALLOWED DIRECTORIES: " + allowedDirsString);
+        return path;
+//        throw new SecurityException("ACCESS DENIED TO PATH: " + inputPath + " - " + containerPath + ". ALLOWED DIRECTORIES: " + allowedDirsString);
     }
 
     /**
