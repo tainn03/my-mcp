@@ -1,5 +1,6 @@
 package com.mcp.config;
 
+import com.mcp.tool.CommandTools;
 import com.mcp.tool.DirectoryTools;
 import com.mcp.tool.FileTools;
 import com.mcp.tool.WebTools;
@@ -13,7 +14,10 @@ import java.util.List;
 @Configuration
 public class ToolConfig {
     @Bean
-    public List<ToolCallback> allToolCallbacks(FileTools fileTools, DirectoryTools directoryTools, WebTools webTools) {
-        return List.of(ToolCallbacks.from(fileTools, directoryTools, webTools));
+    public List<ToolCallback> allToolCallbacks(FileTools fileTools,
+                                               DirectoryTools directoryTools,
+                                               CommandTools commandTools,
+                                               WebTools webTools) {
+        return List.of(ToolCallbacks.from(fileTools, directoryTools, commandTools, webTools));
     }
 }
