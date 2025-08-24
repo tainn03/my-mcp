@@ -92,8 +92,6 @@ public class DirectoryServiceImpl implements DirectoryService {
                 return Map.of("error", "COULD NOT READ DIRECTORY: " + e.getMessage());
             }
             entry.put("children", children);
-        } else {
-            entry.put("children", List.of());
         }
         return entry;
     }
