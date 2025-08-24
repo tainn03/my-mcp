@@ -1,40 +1,40 @@
 package com.mcp.tool;
 
-import com.mcp.util.AppendUtils;
-import com.mcp.util.PathValidator;
+import com.mcp.model.EditFileArgs;
+import com.mcp.service.FileService;
+import com.mcp.service.FileWatcherService;
+import com.mcp.service.PathService;
 import lombok.RequiredArgsConstructor;
 import lombok.experimental.FieldDefaults;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.tool.annotation.Tool;
 import org.springframework.ai.tool.annotation.ToolParam;
 import org.springframework.stereotype.Service;
 
-import java.io.IOException;
-import java.nio.file.Files;
+import java.nio.file.FileSystems;
 import java.nio.file.Path;
+import java.nio.file.PathMatcher;
+import java.nio.file.StandardWatchEventKinds;
+import java.util.Collections;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 @FieldDefaults(level = lombok.AccessLevel.PRIVATE, makeFinal = true)
-@Slf4j
 public class FileTools {
-    PathValidator pathValidator;
+    PathService pathService;
+    FileWatcherService fileWatcherService;
+    FileService fileService;
 
     /**
      * Tool to read the contents of a file
      *
      * @param path The path to the file
-     * @return The contents of the file, or null if an error occurs
+     * @return The contents of the file, or an error message if an error occurs
      */
-    @Tool(name = "read_file", description = "Read the contents of a file")
+    @Tool(name = "f01_read_file", description = "Read the contents of a file")
     public String readFile(@ToolParam String path) {
-        Path validPath = pathValidator.validatePath(path);
-        try {
-            return Files.readString(validPath);
-        } catch (IOException e) {
-            return null;
-        }
+        Path validPath = pathService.validatePath(path);
+        return fileService.readFile(validPath);
     }
 
     /**
@@ -43,24 +43,113 @@ public class FileTools {
      * @param paths A list of file or directory paths to read. If empty, reads from all allowed directories.
      * @return The contents of the files, or error messages if any occur
      */
-    @Tool(name = "read_multiple_files", description = "Read the contents of multiple files or all files in a directory")
-    public String readMultipleFiles(@ToolParam List<String> paths) {
-        List<String> pathsToRead = (paths == null || paths.isEmpty()) ? pathValidator.getAllowedDirsAsString() : paths;
-        StringBuilder results = new StringBuilder();
-        for (String pathStr : pathsToRead) {
-            Path validPath = pathValidator.validatePath(pathStr);
-            if (Files.isDirectory(validPath)) {
-                try {
-                    Files.walk(validPath)
-                            .filter(Files::isRegularFile)
-                            .forEach(file -> AppendUtils.appendFileContent(results, file));
-                } catch (IOException e) {
-                    AppendUtils.appendError(results, validPath, e);
-                }
-            } else {
-                AppendUtils.appendFileContent(results, validPath);
-            }
+    @Tool(name = "f02_read_multiple_files", description = "Read the contents of multiple files or all files in a directory")
+    public String readMultipleFiles(@ToolParam(required = false) List<String> paths) {
+        List<String> pathsToRead = (paths == null || paths.isEmpty()) ? pathService.getAllowedDirsAsString() : paths;
+        List<Path> validPaths = pathsToRead.stream().map(pathService::validatePath).toList();
+        return fileService.readMultipleFiles(validPaths);
+    }
+
+    /**
+     * Tool to write content to a file, creating it if it doesn't exist or overwriting it if it does
+     *
+     * @param path    The path to the file
+     * @param content The content to write to the file
+     * @return A success message or an error message if an error occurs
+     */
+    @Tool(name = "f03_write_file", description = "Write content to a file, creating it if it doesn't exist or overwriting it if it does")
+    public String writeFile(@ToolParam String path, @ToolParam String content) {
+        Path validPath = pathService.validatePath(path);
+        String result = fileService.writeFile(validPath, content);
+        if (result.startsWith("SUCCESS")) {
+            fileWatcherService.handleFileEvent(StandardWatchEventKinds.ENTRY_MODIFY, validPath);
         }
-        return results.toString();
+        return result;
+    }
+
+    /**
+     * Tool to move or rename a file or directory
+     *
+     * @param sourcePath The path to the source file or directory
+     * @param targetPath The path to the target file or directory
+     * @return A success message or an error message if an error occurs
+     */
+    @Tool(name = "f04_move_file", description = "Move or rename a file or directory")
+    public String moveFile(@ToolParam String sourcePath, @ToolParam String targetPath) {
+        Path validSourcePath = pathService.validatePath(sourcePath);
+        Path validTargetPath = pathService.validatePath(targetPath);
+        String result = fileService.moveFile(validSourcePath, validTargetPath);
+        if (result.startsWith("SUCCESS")) {
+            fileWatcherService.handleFileEvent(StandardWatchEventKinds.ENTRY_DELETE, validSourcePath);
+            fileWatcherService.handleFileEvent(StandardWatchEventKinds.ENTRY_CREATE, validTargetPath);
+        }
+        return result;
+    }
+
+    /**
+     * Tool to get detailed information about a file or directory
+     *
+     * @param path The path to the file or directory
+     * @return A string containing detailed information about the file or directory, or an error message if an error occurs
+     */
+    @Tool(name = "f05_get_file_info", description = "Get detailed information about a file or directory.")
+    public String getFileInfo(@ToolParam String path) {
+        Path validPath = pathService.validatePath(path);
+        return fileService.getFileInfo(validPath);
+    }
+
+    /**
+     * Tool to search for files and directories matching a glob pattern, with optional exclusion patterns
+     *
+     * @param path            The starting directory path for the search
+     * @param pattern         The glob pattern to match files and directories
+     * @param excludePatterns A list of glob patterns to exclude from the search
+     * @return A list of matching file and directory paths, or an error message if an error occurs
+     */
+    @Tool(name = "f06_search_files", description = "Search for files and directories matching a glob pattern.")
+    public String searchFiles(@ToolParam(required = false) String path,
+                              @ToolParam String pattern,
+                              @ToolParam(required = false) List<String> excludePatterns) {
+        Path startPath = (path == null || path.isBlank()) ? pathService.getCurrentWorkingDir() : pathService.validatePath(path);
+        PathMatcher patternMatcher = FileSystems.getDefault().getPathMatcher("glob:" + pattern);
+        List<PathMatcher> excludeMatchers = (excludePatterns == null) ? Collections.emptyList() : excludePatterns.stream()
+                .map(p -> FileSystems.getDefault().getPathMatcher("glob:" + p))
+                .toList();
+        return fileService.searchFiles(startPath, patternMatcher, excludeMatchers);
+    }
+
+    /**
+     * Tool to perform a series of text replacements in a file, with an option for a dry run
+     *
+     * @param editFileArgs An EditFileArgs object containing the path to the file, a list of Edit objects specifying the text replacements, and an optional dryRun flag
+     * @return A unified diff of the changes made, or an error message if an error occurs
+     */
+    @Tool(name = "f07_edit_file", description = "Perform a series of text replacements in a file.")
+    public String editFile(EditFileArgs editFileArgs) {
+        Path validPath = pathService.validatePath(editFileArgs.path());
+        return fileService.editFile(validPath, editFileArgs.edits(), editFileArgs.dryRun());
+    }
+
+    /**
+     * Tool to get diffs of changed files with the latest commit in the specified directory
+     *
+     * @param dirPath The path to the directory to check for changes
+     * @return A unified diff of the changes, or an error message if an error occurs
+     */
+    @Tool(name = "f08_get_changes", description = "Get diffs of changed files.")
+    public String getChanges(@ToolParam(required = false) String dirPath) {
+        Path validDirPath = (dirPath == null || dirPath.isBlank()) ? pathService.getCurrentWorkingDir() : pathService.validatePath(dirPath);
+        return fileService.getChanges(validDirPath);
+    }
+
+    @Tool(name = "f09_search_by_keyword", description = "Search for files containing a specific keyword.")
+    public String searchByKeyword(@ToolParam(required = false) String path,
+                                  @ToolParam String keyword,
+                                  @ToolParam(required = false) List<String> excludePatterns) {
+        Path startPath = (path == null || path.isBlank()) ? pathService.getCurrentWorkingDir() : pathService.validatePath(path);
+        List<PathMatcher> excludeMatchers = (excludePatterns == null) ? Collections.emptyList() : excludePatterns.stream()
+                .map(p -> FileSystems.getDefault().getPathMatcher("glob:" + p))
+                .toList();
+        return fileService.searchByKeyword(startPath, keyword, excludeMatchers);
     }
 }

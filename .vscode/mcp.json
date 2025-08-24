@@ -1,0 +1,16 @@
+{
+	"servers": {
+		"my-mcp": {
+			"type": "stdio",
+			"command": "C:/Program Files/Java/jdk-21/bin/java.exe",
+			"args": [
+				"-jar",
+				"build/libs/mcp-0.0.1-SNAPSHOT.jar"
+			],
+			"env": {
+				"ALLOWED_DIRS": "${workspaceFolder}"
+			}
+		}
+	},
+	"inputs": []
+}
