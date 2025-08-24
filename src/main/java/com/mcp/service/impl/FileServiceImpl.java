@@ -293,15 +293,26 @@ public class FileServiceImpl implements FileService {
      * @return A list of file paths containing the keyword, or an error message if an error occurs.
      */
     @Override
-    public String searchByKeyword(Path startPath, String keyword, List<PathMatcher> excludeMatchers) {
-        PathMatcher patternMatcher = path -> {
-            try {
-                return Files.isRegularFile(path) && Files.readString(path).contains(keyword);
-            } catch (IOException e) {
-                return false;
-            }
-        };
-        return searchFiles(startPath, patternMatcher, excludeMatchers);
+    public String searchByKeyword(final Path startPath, final String keyword, final List<PathMatcher> excludeMatchers) {
+        final StringBuilder results = new StringBuilder();
+        try (Stream<Path> stream = Files.walk(startPath)) {
+            stream
+                    .filter(Files::isRegularFile)
+                    .filter(path -> excludeMatchers == null || excludeMatchers.stream().noneMatch(matcher -> matcher.matches(path)))
+                    .parallel()
+                    .forEach(path -> {
+                        try {
+                            if (Files.readString(path).contains(keyword)) {
+                                results.append(path).append(System.lineSeparator());
+                            }
+                        } catch (IOException ignored) {
+                            // Ignore files that cannot be read
+                        }
+                    });
+        } catch (IOException e) {
+            return "ERROR SEARCHING FILES BY KEYWORD: " + e.getMessage();
+        }
+        return results.isEmpty() ? "NO FILES FOUND WITH KEYWORD" : results.toString().trim();
     }
 
     /**
