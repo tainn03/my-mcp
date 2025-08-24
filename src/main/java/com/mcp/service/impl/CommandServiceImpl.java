@@ -93,14 +93,17 @@ public class CommandServiceImpl implements CommandService {
      * @return the result of the termination attempt
      */
     private String terminateProcessByName(String processName) {
-        for (ProcessHandle processHandle : ProcessHandle.allProcesses().toList()) {
-            String cmd = processHandle.info().command().orElse("");
-            if (cmd.contains(processName)) {
-                if (processHandle.destroy()) {
-                    return "TERMINATED PROCESS: " + cmd + " (PID: " + processHandle.pid() + ")";
-                }
-            }
-        }
-        return "NO PROCESS FOUND WITH NAME OR ID: " + processName;
+        return ProcessHandle.allProcesses()
+                .filter(processHandle -> processHandle.info().command().orElse("").contains(processName))
+                .findFirst()
+                .map(processHandle -> {
+                    String cmd = processHandle.info().command().orElse("");
+                    if (processHandle.destroy()) {
+                        return "TERMINATED PROCESS: " + cmd + " (PID: " + processHandle.pid() + ")";
+                    } else {
+                        return "FAILED TO TERMINATE PROCESS: " + cmd + " (PID: " + processHandle.pid() + ")";
+                    }
+                })
+                .orElse("NO PROCESS FOUND WITH NAME OR ID: " + processName);
     }
 }
