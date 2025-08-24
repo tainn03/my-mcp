@@ -1,5 +1,6 @@
 package com.mcp.config;
 
+import com.mcp.tool.CommandTools;
 import com.mcp.tool.DirectoryTools;
 import com.mcp.tool.FileTools;
 import org.springframework.ai.support.ToolCallbacks;
@@ -12,7 +13,9 @@ import java.util.List;
 @Configuration
 public class ToolConfig {
     @Bean
-    public List<ToolCallback> allToolCallbacks(FileTools fileTools, DirectoryTools directoryTools) {
-        return List.of(ToolCallbacks.from(fileTools, directoryTools));
+    public List<ToolCallback> allToolCallbacks(FileTools fileTools,
+                                               DirectoryTools directoryTools,
+                                               CommandTools commandTools) {
+        return List.of(ToolCallbacks.from(fileTools, directoryTools, commandTools));
     }
 }

@@ -7,8 +7,8 @@ spring:
       server:
         name: my-mcp
         version: 1.0.0
-#logging:
-#  level:
-#    root: OFF
+logging:
+  level:
+    root: OFF
 allowed:
   dirs: ${ALLOWED_DIRS}
