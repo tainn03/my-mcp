@@ -3,8 +3,6 @@ name: Package Project
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main, develop ]
 
 jobs:
   build:
@@ -40,7 +38,7 @@ jobs:
 
       - name: Tag Docker image with version
         run: docker tag ghcr.io/${{ github.repository_owner }}/my-mcp:latest ghcr.io/${{ github.repository_owner }}/my-mcp:${{ github.sha }}
-    
+
       - name: Push Docker image with version
         run: docker push ghcr.io/${{ github.repository_owner }}/my-mcp:${{ github.sha }}
 
