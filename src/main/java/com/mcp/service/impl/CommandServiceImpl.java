@@ -20,11 +20,12 @@ public class CommandServiceImpl implements CommandService {
     public String runCommand(String command) {
         try {
             Process process = Runtime.getRuntime().exec(command);
-            InputStream is = process.getInputStream();
-            Scanner s = new Scanner(is).useDelimiter("\\A");
-            String output = s.hasNext() ? s.next() : "";
-            int exitCode = process.waitFor();
-            return "EXIT CODE: " + exitCode + "\nOUTPUT:\n" + output;
+            try (InputStream is = process.getInputStream();
+                 Scanner s = new Scanner(is).useDelimiter("\\A")) {
+                String output = s.hasNext() ? s.next() : "";
+                int exitCode = process.waitFor();
+                return "EXIT CODE: " + exitCode + "\nOUTPUT:\n" + output;
+            }
         } catch (Exception e) {
             return "ERROR: " + e.getMessage();
         }
