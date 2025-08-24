@@ -13,8 +13,8 @@ $RECYCLE.BIN/
 
 ### Linux ###
 .*
-!.gitignore
-!.git*
+\!.gitignore
+\!.git*
 *~
 
 
