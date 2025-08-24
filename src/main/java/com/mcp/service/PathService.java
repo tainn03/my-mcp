@@ -11,4 +11,6 @@ public interface PathService {
     List<String> getAllowedDirsAsString();
 
     Path getCurrentWorkingDir();
+
+    String toContainerPath(String hostPath);
 }
