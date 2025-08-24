@@ -1,6 +1,7 @@
 package com.mcp.service.impl;
 
 import com.mcp.service.PathService;
+import com.mcp.util.PathConverter;
 import jakarta.annotation.PostConstruct;
 import lombok.AccessLevel;
 import lombok.experimental.FieldDefaults;
@@ -69,11 +70,12 @@ public class PathServiceImpl implements PathService {
      * @throws SecurityException if the path is not allowed
      */
     public Path validatePath(String inputPath) {
-        Path path = Paths.get(inputPath).toAbsolutePath().normalize();
+        String containerPath = PathConverter.toContainerPath(inputPath);
+        Path path = Paths.get(containerPath).toAbsolutePath().normalize();
         if (isAllowed(path)) {
             return path;
         }
-        throw new SecurityException("ACCESS DENIED TO PATH: " + inputPath + ". ALLOWED DIRECTORIES: " + allowedDirsString);
+        throw new SecurityException("ACCESS DENIED TO PATH: " + containerPath + ". ALLOWED DIRECTORIES: " + allowedDirsString);
     }
 
     /**

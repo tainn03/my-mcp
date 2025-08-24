@@ -22,9 +22,13 @@
 				"--mount",
 				"type=bind,src=${workspaceFolder},dst=/projects/workspace",
 				"-e",
-				"ALLOWED_DIRS=${workspaceFolder}",
+				"HOST_WORKSPACE=${workspaceFolder}",
 				"-e",
-				"SCREENSHOTS_API_KEY=",
+				"CONTAINER_WORKSPACE=/projects/workspace",
+				"-e",
+				"ALLOWED_DIRS=/projects/workspace",
+				"-e",
+				"SCREENSHOTS_API_KEY=FTVBZ7V-62E4BX6-NAY1RWW-EZGYDEA",
 				"ghcr.io/tainn03/my-mcp:latest"
 			]
 		}
