@@ -1,6 +1,6 @@
 {
 	"servers": {
-		"my-mcp": {
+		"my-mcp-java": {
 			"type": "stdio",
 			"command": "C:/Program Files/Java/jdk-21/bin/java.exe",
 			"args": [
@@ -8,8 +8,25 @@
 				"build/libs/mcp-0.0.1-SNAPSHOT.jar"
 			],
 			"env": {
-				"ALLOWED_DIRS": "${workspaceFolder}"
+				"ALLOWED_DIRS": "${workspaceFolder}",
+				"SCREENSHOTS_API_KEY": "FTVBZ7V-62E4BX6-NAY1RWW-EZGYDEA"
 			}
+		},
+		"my-mcp-docker": {
+			"type": "stdio",
+			"command": "docker",
+			"args": [
+				"run",
+				"-i",
+				"--rm",
+				"--mount",
+				"type=bind,src=${workspaceFolder},dst=/projects/workspace",
+				"-e",
+				"ALLOWED_DIRS=${workspaceFolder}",
+				"-e",
+				"SCREENSHOTS_API_KEY=",
+				"ghcr.io/tainn03/my-mcp:latest"
+			]
 		}
 	},
 	"inputs": []
