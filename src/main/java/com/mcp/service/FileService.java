@@ -22,4 +22,6 @@ public interface FileService {
     String editFile(Path path, List<Edit> edits, Boolean dryRun);
 
     String getChanges(Path path);
+
+    String searchByKeyword(Path startPath, String keyword, List<PathMatcher> excludeMatchers);
 }

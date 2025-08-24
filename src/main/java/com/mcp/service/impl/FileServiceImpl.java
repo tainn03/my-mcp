@@ -284,6 +284,32 @@ public class FileServiceImpl implements FileService {
         }
     }
 
+    /**
+     * Searches for files containing a specific keyword, with optional exclusion patterns.
+     *
+     * @param startPath       The starting directory path for the search.
+     * @param keyword         The keyword to search for within files.
+     * @param excludeMatchers A list of glob patterns to exclude from the search.
+     * @return A list of file paths containing the keyword, or an error message if an error occurs.
+     */
+    @Override
+    public String searchByKeyword(Path startPath, String keyword, List<PathMatcher> excludeMatchers) {
+        PathMatcher patternMatcher = path -> {
+            try {
+                return Files.isRegularFile(path) && Files.readString(path).contains(keyword);
+            } catch (IOException e) {
+                return false;
+            }
+        };
+        return searchFiles(startPath, patternMatcher, excludeMatchers);
+    }
+
+    /**
+     * Gets the name of the parent branch for the given path using Git.
+     *
+     * @param path The path to the file or directory.
+     * @return The name of the parent branch, or "develop" if it cannot be determined.
+     */
     private String getGitBranchName(Path path) {
         try {
             ProcessBuilder builder = new ProcessBuilder("git", "rev-parse", "--abbrev-ref", "HEAD@{upstream}");

@@ -9,4 +9,6 @@ public interface PathService {
     Path validatePath(String inputPath);
 
     List<String> getAllowedDirsAsString();
+
+    Path getCurrentWorkingDir();
 }
