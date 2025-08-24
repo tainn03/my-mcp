@@ -12,3 +12,6 @@ spring:
 #    root: OFF
 allowed:
   dirs: ${ALLOWED_DIRS}
+app:
+  screenshots:
+    api-key: ${SCREENSHOTS_API_KEY}
